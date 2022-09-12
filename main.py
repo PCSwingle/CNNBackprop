@@ -25,8 +25,8 @@ def getInput(inputSize):
     return np.array([inputLayer]).T
 
 # Change later to actually give real outputs
-def getExpectedOutput(inputLayer, outputSize):
-    outputLayer = [inputLayer[0][0] * 2]
+def getExpectedOutput(inputLayer):
+    outputLayer = [inputLayer[0][0] * inputLayer[0][0]]
     outputLayer.append(1) # Bias node, should remove from this function soon
     return np.array([outputLayer]).T
 
@@ -56,7 +56,7 @@ def main():
     learningRate = 0.01                                                                         # Currently just using a constant learning rate, maybe move to more complicated adams optimizer?
     batchSize = 10
     batches = 10000
-    coefficientMomentum = 0.5                                                                   # Percentage to be used first time, 1 - this is next time
+    coefficientMomentum = 0.9                                                                   # Percentage to be used first time, 1 - this is next time
 
     # Create weights
     weightMatrices = createWeights(layersizes, initialWeightScale)
@@ -70,7 +70,7 @@ def main():
 
             # Get input into first layer
             currentLayer = getInput(layersizes[0])
-            expectedOutput = getExpectedOutput(currentLayer, layersizes[-1])
+            expectedOutput = getExpectedOutput(currentLayer)
             #print("Input: ", currentLayer)
             #print("Expected output: ", expectedOutput)
 
@@ -118,8 +118,8 @@ def main():
     
     userInput = input("Please input a number to multiply: ")
     mnil = np.array([[float(userInput), 1]]).T
-    userOutput = calcInput(mnil, weightMatrices, activationFunction)
-    print("sin(", userInput, ") = ", np.sin(float(userInput)))
+    userOutput = calcInput(mnil.copy(), weightMatrices, activationFunction)
+    print("Expected output: ", getExpectedOutput(mnil))
     print("NN output: ", userOutput)
 
 # Possible activation functions and their derivatives
