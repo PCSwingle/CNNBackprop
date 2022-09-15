@@ -12,7 +12,7 @@ def createWeights(layersizes, initialWeightScale):
 
 # Change later to actually give real inputs
 def getInput(inputSize):
-    inputLayer = np.random.normal(loc = 0.5, scale = 0.5, size=(inputSize, 1))
+    inputLayer = np.random.normal(loc = 0, scale = 1, size=(inputSize, 1))
     return inputLayer
 
 # Change later to actually give real outputs
@@ -29,10 +29,12 @@ def applyActivationFunction(outputLayer, activationFunction):
         outputLayer[i][0] = activationFunction(outputLayer[i][0])
     return outputLayer
 
-def calcInput(currentLayer, weightMatrices, activationFunction):
-    for weightMatrix in weightMatrices:
+def calcInput(currentLayer, weightMatrices, activationFunction, outputActivationFunction):
+    for i, weightMatrix in enumerate(weightMatrices):
         currentLayer = calcNextLayer(currentLayer, weightMatrix)
-        currentLayer = applyActivationFunction(currentLayer, activationFunction)
+        if i != len(weightMatrices) - 1:
+            currentLayer = applyActivationFunction(currentLayer, activationFunction)
+    currentLayer = applyActivationFunction(currentLayer, outputActivationFunction)
     return currentLayer
 
 def main(): 
@@ -74,11 +76,14 @@ def main():
             # Calculate each layer
             zprimes = []
             aneurons = []
-            for weightMatrix in weightMatrices: 
+            for i, weightMatrix in enumerate(weightMatrices):
                 aneurons.append(currentLayer.copy().T)
                 currentLayer = calcNextLayer(currentLayer, weightMatrix)
-                zprimes.append(np.array([[activationFunctionPrime(a[0]) for a in currentLayer]]).T)
-                currentLayer = applyActivationFunction(currentLayer, activationFunction)
+                if i != len(weightMatrices) - 1:
+                    zprimes.append(np.array([[activationFunctionPrime(a[0]) for a in currentLayer]]).T)
+                    currentLayer = applyActivationFunction(currentLayer, activationFunction)
+            zprimes.append(np.array([[outputActivationFunctionPrime(a[0]) for a in currentLayer]]).T)
+            currentLayer = applyActivationFunction(currentLayer, outputActivationFunction)
 
             #print("Output: ", currentLayer)
 
@@ -122,7 +127,7 @@ def main():
     
     userInput = input("Please input a number to multiply: ")
     mnil = np.array([[float(userInput)]])
-    userOutput = calcInput(mnil.copy(), weightMatrices, activationFunction)
+    userOutput = calcInput(mnil.copy(), weightMatrices, activationFunction, outputActivationFunction)
     print("Expected output: ", getExpectedOutput(mnil))
     print("NN output: ", userOutput)
 
