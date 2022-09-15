@@ -36,11 +36,12 @@ def calcInput(currentLayer, weightMatrices, activationFunction):
     return currentLayer
 
 def main(): 
+    # Set up and debug params
     np.random.default_rng()
-
-    # REMOVE ACTIVATION FROM OUTPUT IN MULTIPLE PLACES
+    batches_cost_print = 100
+    
     # Hyper-parameters here:
-    layersizes = [1, 10, 1]                                                                     # Number of nodes in each layer; first layer is input, last layer is output.
+    layersizes = [1, 5, 5, 1]                                                                   # Number of nodes in each layer; first layer is input, last layer is output.
     initialWeightScale = 0.1                                                                    # Initial weight from -scale to scale on a normal distribution
 
     leakyReluDropoff = 0.01
@@ -50,18 +51,19 @@ def main():
     outputActivationFunction = noac
     outputActivationFunctionPrime = noac_prime
 
-    learningRate = 0.01                                                                         # Currently just using a constant learning rate, maybe move to more complicated adams optimizer?
+    learningRate = 0.1                                                                         # Currently just using a constant learning rate, maybe move to more complicated adams optimizer?
     batchSize = 32
-    batches = 3000
-    coefficientMomentum = 1.0                                                                   # Percentage to be used first time, 1 - this is next time
+    batches = 800
+    coefficientMomentum = 0.5                                                                  # Percentage to be used first time, 1 - this is next time
 
     # Create weights
     weightMatrices = createWeights(layersizes, initialWeightScale)
-    
+ 
     totalWeightChanges = [np.zeros(np.shape(weightMatrices[n])) for n in range(len(weightMatrices))]
-    for batch in range(batches): 
+    for batch in range(batches):
         for wc in totalWeightChanges:
             wc = wc * (1 - coefficientMomentum)
+        batchCost = 0
         for datapoint in range(batchSize):
             # Get input into first layer
             currentLayer = getInput(layersizes[0])
@@ -104,6 +106,15 @@ def main():
                 newWeightChange = errors[i].dot(aneurons[i])
                 totalWeightChanges[i] = totalWeightChanges[i] + (newWeightChange * coefficientMomentum)
             #print("Weight changes: ", weightChanges)
+            
+            # Get cost
+            currentCost = 0
+            for i in range(layersizes[-1]):
+                currentCost += (currentLayer[i][0] - expectedOutput[i][0])**2
+            batchCost += currentCost / layersizes[-1]
+        batchCost /= batchSize
+        if batch % batches_cost_print == 0:
+            print("Batch ", batch, " cost: ", batchCost)
 
         for i in range(len(totalWeightChanges)):
             totalWeightChanges[i] = (totalWeightChanges[i] / batchSize) * learningRate  # I think this is where adam optimizer might come in
