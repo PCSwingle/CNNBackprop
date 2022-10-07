@@ -1,5 +1,13 @@
+# todo list:
+# Convolutions
+# Better input-output functions
+# Adam optimizer
+# Cupy
+# Hyper-parameters from file / cli so I can specify hyper-parameters per task
+
 import numpy as np
 import functools
+import argparse
 
 def createWeights(layersizes, initialWeightScale):
     # Make random weights
@@ -37,26 +45,19 @@ def calcInput(currentLayer, weightMatrices, activationFunction, outputActivation
     currentLayer = applyActivationFunction(currentLayer, outputActivationFunction)
     return currentLayer
 
-def main(): 
+def trainNetwork(batches_cost_print, hidden_layers, hidden_layer_size, activationFunction, activationFunctionPrime, learningRate, batchSize, batches, coefficientMomentum, min_cost_stop):
     # Set up and debug params
     np.random.default_rng()
     batches_cost_print = 100
     
-    # Hyper-parameters here:
-    layersizes = [1, 5, 5, 1]                                                                   # Number of nodes in each layer; first layer is input, last layer is output.
+    # More hyper-parameters here (move to cli!):
+    layersizes = [hidden_layer_size for i in range(hidden_layers)]                              # Number of nodes in each layer; first layer is input, last layer is output.
+    layersizes.insert(0, 1)
+    layersizes.append(1)
     initialWeightScale = 0.1                                                                    # Initial weight from -scale to scale on a normal distribution
 
-    leakyReluDropoff = 0.01
-    activationFunction = functools.partial(leaky_relu, dropOff = leakyReluDropoff)
-    activationFunctionPrime = functools.partial(leaky_relu_prime, dropOff = leakyReluDropoff)
-    
     outputActivationFunction = noac
     outputActivationFunctionPrime = noac_prime
-
-    learningRate = 0.1                                                                         # Currently just using a constant learning rate, maybe move to more complicated adams optimizer?
-    batchSize = 32
-    batches = 800
-    coefficientMomentum = 0.5                                                                  # Percentage to be used first time, 1 - this is next time
 
     # Create weights
     weightMatrices = createWeights(layersizes, initialWeightScale)
@@ -118,6 +119,9 @@ def main():
                 currentCost += (currentLayer[i][0] - expectedOutput[i][0])**2
             batchCost += currentCost / layersizes[-1]
         batchCost /= batchSize
+        if batchCost < min_cost_stop:
+            print("Minimum cost reached on batch ", batch, " with cost ", batchCost)
+            break
         if batch % batches_cost_print == 0:
             print("Batch ", batch, " cost: ", batchCost)
 
@@ -125,11 +129,60 @@ def main():
             totalWeightChanges[i] = (totalWeightChanges[i] / batchSize) * learningRate  # I think this is where adam optimizer might come in
             weightMatrices[i] = weightMatrices[i] - totalWeightChanges[i]
     
-    userInput = input("Please input a number to multiply: ")
-    mnil = np.array([[float(userInput)]])
-    userOutput = calcInput(mnil.copy(), weightMatrices, activationFunction, outputActivationFunction)
-    print("Expected output: ", getExpectedOutput(mnil))
-    print("NN output: ", userOutput)
+    print("Type 'exit' at any time to leave")
+    userInput = input("Please input " + str(layersizes[0]) + " number(s) ")
+    while userInput != "exit":
+        try:
+            mnil = np.array([[float(userInput)]])
+        except ValueError:
+            userInput = input("Please only insert numbers ")
+            continue
+        userOutput = calcInput(mnil.copy(), weightMatrices, activationFunction, outputActivationFunction)
+        print("Expected output: ", getExpectedOutput(mnil))
+        print("NN output: ", userOutput)
+    
+        userInput = input("Please input " + str(layersizes[0]) + " number(s) ")
+    
+    return weightMatrices
+
+def main():
+    # Set up cli and hyper-parameters (not all cli controlled yet)
+    parser = argparse.ArgumentParser(description = "Train a new network and test on custom inputs", formatter_class = argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument("-p", "--print", type = int, default = 100, help = "number of batches that will run before printing a cost update")
+    parser.add_argument("-l", "--layers", type = int, default = 2, help = "number of hidden layers in network")
+    parser.add_argument("-s", "--size", type = int, default = 5, help = "number of nodes in each hidden layer")
+    parser.add_argument("-a", "--func", default = "leaky", help = "activation function to use, possible values: leaky, relu, none")
+    parser.add_argument("-r", "--rate", type = float, default = 0.5, help = "learning rate for network")
+    parser.add_argument("-t", "--bsize", type = int, default = 32, help = "size of batches when training network")
+    parser.add_argument("-b", "--batches", type = int, default = 3000, help = "maximum batches to train network on")
+    parser.add_argument("-m", "--momentum", type = float, default = 0.5, help = "momentum coefficient from 0.5-1, where 1 is no momentum")
+    parser.add_argument("-c", "--cost", type = float, default = 10.0**(-25), help = "minimum cost to reach before stopping training")
+    args = parser.parse_args()
+
+    np.random.default_rng()
+    batches_cost_print = args.print
+    
+    hidden_layers = args.layers
+    hidden_layer_size = args.size
+
+    activationFunction = noac
+    activationFunctionPrime = noac_prime
+
+    if args.func == "leaky":
+        leakyReluDropoff = 0.01
+        activationFunction = functools.partial(leaky_relu, dropOff = leakyReluDropoff)
+        activationFunctionPrime = functools.partial(leaky_relu_prime, dropOff = leakyReluDropoff)
+    elif args.func == "relu":
+        activationFunction = relu
+        activationFunction = relu_prime
+
+    learningRate = args.rate                                                                   # Currently just using a constant learning rate, maybe move to more complicated adams optimizer?
+    batchSize = args.bsize
+    batches = args.batches
+    coefficientMomentum = args.momentum                                                        # Percentage to be used first ntime, 1 - this is next time
+    min_cost_stop = args.cost
+
+    weightMatrices = trainNetwork(batches_cost_print, hidden_layers, hidden_layer_size, activationFunction, activationFunctionPrime, learningRate, batchSize, batches, coefficientMomentum, min_cost_stop)
 
 # Possible activation functions and their derivatives
 def relu(x):
